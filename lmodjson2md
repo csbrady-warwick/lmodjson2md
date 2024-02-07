@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+import json
+import sys
+import unicodedata
+
+def normalize_string(unicode_string):
+    normalized_string = unicodedata.normalize('NFKD', unicode_string)
+    ascii_string = normalized_string.encode('ascii', 'ignore').decode('ascii')
+    return ascii_string
+
+
+def map_link_name(name):
+  res = name.lower()
+  res=res.replace("/","")
+  res=res.replace(" ","-")
+  res=res.replace(".","")
+  res=res.replace("+","")
+  return res
+
+def split_name(name):
+  sname = name.split("/")
+  if (len(sname)>1):
+    pt1 = "/".join(sname[:len(sname)-1])
+    return [pt1,sname[len(sname)-1]]
+  else:
+    return [name,name]
+
+def gen_mapping(modules):
+  result = {}
+  for index, module in enumerate(modules):
+    result[module['package']]=index
+  return result
+
+def count_map(versions):
+  result={}
+  for version in versions:
+    if version in result:
+      result[version] += 1
+    else:
+      result[version] = 1
+  return result
+
+def count_map_raw(versions, default):
+  lversions=[]
+  for version in versions:
+    try:
+      lversions.append(version['full'])
+    except:
+      lversions.append(default)
+  return count_map(lversions)
+
+def get_versions(fullname, modules, modulemap):
+  version_sets=[]
+  names = split_name(fullname)
+  module = modules[modulemap[names[0]]]
+  for version in module['versions']:
+    if (version['full']==fullname):
+      version_sets.append(version)
+  return version_sets
+
+def get_parents(fullname, modules, modulemap):
+  parent_sets=[]
+  versions = get_versions(fullname, modules, modulemap)
+  for version in versions:
+    try:
+      for parent in version['parent']:
+        parent_sets.append(parent)
+    except:
+      parent_sets.append([])
+  return parent_sets
+
+def json_to_md(json_text):
+
+  try:
+    modules = json.loads(json_text)
+    modulenames=sorted([module['package'] for module in modules],key=str.casefold)
+    modulemap = gen_mapping(modules)
+  except:
+    sys.stderr.write("Unable to parse JSON at basic level")
+    sys.exit()
+  header = "Module list"
+
+  result = u""
+
+  result+=u'# '+header +u'\n\n'
+
+  result += u"Module Name | Description | Versions\n"
+  result += u"------- | ------- | -------\n"
+  for name in modulenames:
+    module = modules[modulemap[name]]
+    result += name + " | " 
+    try:
+      result +=normalize_string(module['description']).replace(u"\n",u"") + u" | "
+    except:
+      result += "No description |"
+      pass
+    versions = sorted(count_map_raw(module['versions'],name))
+    for version in versions:
+      result+="["+version+"](#"+map_link_name(version)+")"+" <BR>"
+    result+="\n"
+
+  result+= '# Details\n\n'
+  for name in modulenames:
+    module = modules[modulemap[name]]
+    versions = sorted(count_map_raw(module['versions'],name))
+    for version in versions:
+      result += "## " + version +'\n\n'
+      sets = get_parents(version, modules, modulemap)
+      for pset in sets:
+        result += "module load " + " ".join(pset) + " " + version+'\n\n'
+      result += '\n'
+      result += "[Return to modules](#"+map_link_name(header)+")\n\n"
+      result += "-------\n\n"
+  return result
+
+def unique_keys(json_text):
+  try:
+    modules = json.loads(json_text)
+  except:
+    sys.stderr.write("Unable to parse JSON at basic level\n")
+    sys.exit()
+
+  l = set([])
+  for module in modules:
+    for key in module:
+      l.add(key)
+  return l
+
+if __name__ == "__main__": 
+  lines = sys.stdin.readlines()
+  input_string = ''.join(lines)
+  
+  print(json_to_md(input_string))
