@@ -99,7 +99,7 @@ def json_to_md(json_text):
       result+="["+version+"](#"+map_link_name(version)+")"+" <BR>"
     result+="\n"
 
-  result+= '# Details\n\n'
+  result+= '\n# Details\n\n'
   for name in modulenames:
     module = modules[modulemap[name]]
     versions = sorted(count_map_raw(module['versions'],name))
