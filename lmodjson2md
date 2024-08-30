@@ -90,7 +90,7 @@ def json_to_md(json_text):
     module = modules[modulemap[name]]
     result += name + " | " 
     try:
-      result +=normalize_string(module['description']).replace(u"\n",u"") + u" | "
+      result +=normalize_string(module['description']).replace(u"\n",u" ") + u" | "
     except:
       result += "No description |"
       pass
